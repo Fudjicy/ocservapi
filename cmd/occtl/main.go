@@ -62,9 +62,13 @@ func handleAuth(ctx context.Context, api, sessionPath string, args []string) {
 	case "login":
 		fs := flag.NewFlagSet("auth login", flag.ExitOnError)
 		username := fs.String("username", "owner", "username")
+		password := fs.String("password", envOrDefault("OCCTL_PASSWORD", ""), "password")
 		_ = fs.Parse(args[1:])
+		if *password == "" {
+			fatal("password is required (use --password or OCCTL_PASSWORD)")
+		}
 		client := cli.NewClient(api, "")
-		token, user, err := client.Login(ctx, *username)
+		token, user, err := client.Login(ctx, *username, *password)
 		if err != nil {
 			fatal(err.Error())
 		}
@@ -281,7 +285,7 @@ func fatal(message string) {
 
 func printUsage() {
 	fmt.Println(`occtl commands:
-  occtl auth login --username owner
+  occtl auth login --username owner --password secret123
   occtl auth whoami
   occtl system info
   occtl endpoint list

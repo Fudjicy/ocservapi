@@ -2,7 +2,7 @@
 
 `ocservapi` — central control plane для управления `ocserv` endpoint'ами. Система проектируется как модульный монолит на Go с PostgreSQL, локальным файловым хранилищем и обязательной локальной консолью `occtl`.
 
-> В репозитории уже есть рабочие бинарники `ocservapi` и `occtl`. Текущая реализация поднимает API, локальную CLI/TUI-консоль, bootstrap installation identity, аудит и endpoint-scoped представления. Для автономной сборки в этом репозитории operational state сейчас хранится в локальном файле `state.json` внутри `data_dir`, при этом PostgreSQL DSN уже присутствует в конфиге и отображается в `system info`, чтобы сохранить целевой runtime-контур из технической спецификации.
+> В репозитории уже есть рабочие бинарники `ocservapi` и `occtl`. Sprint 1 переводит основное хранилище на PostgreSQL: приложение само создаёт схему SQL-миграциями, хранит `system_instance`, пользователей, сессии, endpoint access, deployments и audit в PostgreSQL, а `occtl` продолжает работать через те же API и локальный shell/TUI.
 
 ## Что должно входить в систему
 
@@ -122,6 +122,11 @@ storage:
   data_dir: "/var/lib/ocservapi"
   master_key_path: "/etc/ocservapi/master.key"
 
+bootstrap:
+  display_name: "ocservapi"
+  owner_username: "owner"
+  owner_password: "change_me_owner_password"
+
 logging:
   level: "info"
 ```
@@ -129,7 +134,8 @@ logging:
 Что важно:
 
 - bootstrap-конфиг используется только для старта приложения;
-- runtime-настройки должны храниться в БД;
+- runtime-настройки и installation identity хранятся в PostgreSQL;
+- bootstrap owner создаётся только при первом старте пустой базы;
 - bootstrap-конфиг не должен перезаписывать runtime-настройки существующей установки.
 
 ## 6. Сборка бинарей
@@ -150,9 +156,9 @@ go build -o bin/occtl ./cmd/occtl
 1. прочитать bootstrap-конфиг;
 2. подключиться к PostgreSQL;
 3. проверить доступность БД;
-4. зафиксировать текущую schema version;
-5. создать bootstrap state в `data_dir/state.json`;
-6. создать `system_instance`;
+4. автоматически применить SQL-миграции;
+5. создать `system_instance`;
+6. создать bootstrap owner с паролем;
 7. завершить инициализацию без destructive-операций.
 
 Пример запуска:
@@ -168,8 +174,8 @@ go build -o bin/occtl ./cmd/occtl
 Повторный запуск должен:
 
 - сохранить существующий `installation_id`;
-- переиспользовать bootstrap state из `data_dir/state.json`;
-- не пересоздавать owner и bootstrap-state поверх рабочей установки;
+- применять только недостающие SQL-миграции;
+- не пересоздавать owner поверх рабочей установки;
 - не делать destructive reset и повторный seed.
 
 ---
@@ -190,19 +196,15 @@ PGPASSWORD='change_me_now' psql \
   -c '\dt'
 ```
 
-На текущем этапе этот шаг нужен как проверка целевого контура и корректности DSN. Фактическое operational state текущая сборка хранит в файле `state.json` внутри `data_dir`, поэтому после первого старта дополнительно проверьте наличие этого файла:
-
-```bash
-ls -l /var/lib/ocservapi/state.json
-```
+После первого старта должны появиться системные таблицы, включая `system_instance`, `users`, `sessions`, `endpoints`, `endpoint_admin_access`, `deployments` и `audit_events`.
 
 ## 2. Проверка logical identity
 
 Проверьте наличие installation identity через CLI:
 
 ```bash
-./bin/occtl auth login --username owner
-./bin/occtl system info
+./bin/occtl --api http://127.0.0.1:8080 auth login --username owner --password change_me_owner_password
+./bin/occtl --api http://127.0.0.1:8080 system info
 ```
 
 Что это подтверждает:
@@ -226,12 +228,12 @@ curl -fsS http://127.0.0.1:8080/health
 Минимальный набор команд локальной проверки должен выглядеть так:
 
 ```bash
-./bin/occtl system info
-./bin/occtl endpoint list
-./bin/occtl auth login
-./bin/occtl auth whoami
-./bin/occtl deployment list
-./bin/occtl audit list
+./bin/occtl --api http://127.0.0.1:8080 auth login --username owner --password change_me_owner_password
+./bin/occtl --api http://127.0.0.1:8080 system info
+./bin/occtl --api http://127.0.0.1:8080 endpoint list
+./bin/occtl --api http://127.0.0.1:8080 auth whoami
+./bin/occtl --api http://127.0.0.1:8080 deployment list
+./bin/occtl --api http://127.0.0.1:8080 audit list
 ```
 
 Через эти команды администратор должен иметь возможность убедиться, что система рабочая и отвечает через API.
@@ -348,19 +350,20 @@ sudo tar -C /var/lib -czf ocservapi-files.tar.gz ocservapi
 
 В текущем состоянии доступны:
 
-- backend `ocservapi` с HTTP API (`/health`, `auth/login`, `auth/whoami`, `system/info`, `endpoints`, `deployments`, `audit`, `access`);
+- backend `ocservapi` с HTTP API (`/health`, `/auth/login`, `/auth/whoami`, `/system/info`, `/endpoints`, `/deployments`, `/audit`, `/access`);
 - локальный клиент `occtl` с командами `auth login`, `auth whoami`, `system info`, `endpoint list`, `deployment list`, `audit list`;
 - интерактивный локальный режим `occtl shell` / `occtl tui`;
-- bootstrap installation identity, owner-пользователь, demo endpoint `node01`, demo deployment и audit trail;
-- безопасный вывод DSN без пароля в `system info`;
-- локальное хранение operational state в `data_dir/state.json`.
+- автоматическое создание SQL-схемы в PostgreSQL на пустой базе;
+- таблица `system_instance` с устойчивым `installation_id`;
+- bootstrap owner-пользователь с password auth;
+- безопасный вывод DSN без пароля в `system info`.
 
 # Следующие шаги разработки
 
 Для дальнейшего сближения с полной технической спецификацией стоит добавить:
 
-- полноценный PostgreSQL storage через `database/sql` и `pgx`-совместимый runtime;
-- реальное применение SQL-миграций поверх PostgreSQL;
+- усиление password storage до отдельного криптографического модуля / KDF-провайдера;
+- расширение PostgreSQL store новыми CRUD-операциями для endpoint management;
 - REST-операции создания/изменения endpoint'ов и управления доступом;
 - отдельные PKI-провайдеры для server/client CA;
 - managed SSH/deploy executor и rollback flow;

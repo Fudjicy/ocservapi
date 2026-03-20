@@ -31,6 +31,7 @@ type StorageConfig struct {
 type BootstrapConfig struct {
 	DisplayName   string
 	OwnerUsername string
+	OwnerPassword string
 }
 
 type LoggingConfig struct {
@@ -94,6 +95,8 @@ func parseYAML(input string) (Config, error) {
 				cfg.Bootstrap.DisplayName = value
 			case "owner_username":
 				cfg.Bootstrap.OwnerUsername = value
+			case "owner_password":
+				cfg.Bootstrap.OwnerPassword = value
 			}
 		case "logging":
 			if key == "level" {
@@ -131,6 +134,9 @@ func (c Config) validate() error {
 	}
 	if c.Storage.MasterKeyPath == "" {
 		return fmt.Errorf("storage.master_key_path is required")
+	}
+	if c.Bootstrap.OwnerPassword == "" {
+		return fmt.Errorf("bootstrap.owner_password is required")
 	}
 	return nil
 }

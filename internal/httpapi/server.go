@@ -34,6 +34,13 @@ func NewServer(opts Options) http.Handler {
 	s := &Server{store: opts.Store, version: opts.Version, sessionTTL: opts.SessionTTL, masterKeyPath: opts.MasterKeyPath}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", s.handleHealth)
+	mux.HandleFunc("/auth/login", s.handleLogin)
+	mux.Handle("/auth/whoami", s.requireAuth(http.HandlerFunc(s.handleWhoAmI)))
+	mux.Handle("/system/info", s.requireAuth(http.HandlerFunc(s.handleSystemInfo)))
+	mux.Handle("/endpoints", s.requireAuth(http.HandlerFunc(s.handleEndpoints)))
+	mux.Handle("/deployments", s.requireAuth(http.HandlerFunc(s.handleDeployments)))
+	mux.Handle("/audit", s.requireAuth(http.HandlerFunc(s.handleAudit)))
+	mux.Handle("/access", s.requireAuth(http.HandlerFunc(s.handleAccess)))
 	mux.HandleFunc("/api/v1/auth/login", s.handleLogin)
 	mux.Handle("/api/v1/auth/whoami", s.requireAuth(http.HandlerFunc(s.handleWhoAmI)))
 	mux.Handle("/api/v1/system/info", s.requireAuth(http.HandlerFunc(s.handleSystemInfo)))
@@ -64,12 +71,13 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	var req struct {
 		Username string `json:"username"`
+		Password string `json:"password"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json body")
 		return
 	}
-	token, user, err := s.store.Login(r.Context(), strings.TrimSpace(req.Username), s.sessionTTL)
+	token, user, err := s.store.Login(r.Context(), strings.TrimSpace(req.Username), req.Password, s.sessionTTL)
 	if err != nil {
 		writeError(w, http.StatusUnauthorized, err.Error())
 		return

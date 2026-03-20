@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS users (
     id BIGSERIAL PRIMARY KEY,
     username TEXT NOT NULL UNIQUE,
     role TEXT NOT NULL CHECK (role IN ('owner', 'admin')),
+    password_salt TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -112,17 +114,3 @@ CREATE TABLE IF NOT EXISTS sessions (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMPTZ NOT NULL
 );
-
-INSERT INTO endpoints (name, address, description)
-SELECT 'node01', '10.0.0.11', 'Bootstrap demo endpoint'
-WHERE NOT EXISTS (SELECT 1 FROM endpoints WHERE name = 'node01');
-
-INSERT INTO ca_profiles (name, kind, mode)
-SELECT 'node01-client-ca', 'client', 'internal'
-WHERE NOT EXISTS (SELECT 1 FROM ca_profiles WHERE name = 'node01-client-ca');
-
-INSERT INTO certificates (endpoint_id, common_name, cert_type, status)
-SELECT e.id, 'node01.example.internal', 'server', 'issued'
-FROM endpoints e
-WHERE e.name = 'node01'
-  AND NOT EXISTS (SELECT 1 FROM certificates WHERE common_name = 'node01.example.internal');

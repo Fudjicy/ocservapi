@@ -46,13 +46,13 @@ func (c *Client) Health(ctx context.Context) (map[string]any, error) {
 	return resp, nil
 }
 
-func (c *Client) Login(ctx context.Context, username string) (string, auth.User, error) {
-	payload := map[string]string{"username": username}
+func (c *Client) Login(ctx context.Context, username, password string) (string, auth.User, error) {
+	payload := map[string]string{"username": username, "password": password}
 	var resp struct {
 		Token string    `json:"token"`
 		User  auth.User `json:"user"`
 	}
-	if err := c.do(ctx, http.MethodPost, "/api/v1/auth/login", payload, false, &resp); err != nil {
+	if err := c.do(ctx, http.MethodPost, "/auth/login", payload, false, &resp); err != nil {
 		return "", auth.User{}, err
 	}
 	return resp.Token, resp.User, nil
@@ -60,7 +60,7 @@ func (c *Client) Login(ctx context.Context, username string) (string, auth.User,
 
 func (c *Client) WhoAmI(ctx context.Context) (auth.User, error) {
 	var resp auth.User
-	if err := c.do(ctx, http.MethodGet, "/api/v1/auth/whoami", nil, true, &resp); err != nil {
+	if err := c.do(ctx, http.MethodGet, "/auth/whoami", nil, true, &resp); err != nil {
 		return auth.User{}, err
 	}
 	return resp, nil
@@ -68,7 +68,7 @@ func (c *Client) WhoAmI(ctx context.Context) (auth.User, error) {
 
 func (c *Client) SystemInfo(ctx context.Context) (system.Info, error) {
 	var resp system.Info
-	if err := c.do(ctx, http.MethodGet, "/api/v1/system/info", nil, true, &resp); err != nil {
+	if err := c.do(ctx, http.MethodGet, "/system/info", nil, true, &resp); err != nil {
 		return system.Info{}, err
 	}
 	return resp, nil
@@ -78,7 +78,7 @@ func (c *Client) Endpoints(ctx context.Context) ([]store.Endpoint, error) {
 	var resp struct {
 		Items []store.Endpoint `json:"items"`
 	}
-	if err := c.do(ctx, http.MethodGet, "/api/v1/endpoints", nil, true, &resp); err != nil {
+	if err := c.do(ctx, http.MethodGet, "/endpoints", nil, true, &resp); err != nil {
 		return nil, err
 	}
 	return resp.Items, nil
@@ -88,7 +88,7 @@ func (c *Client) Deployments(ctx context.Context) ([]store.Deployment, error) {
 	var resp struct {
 		Items []store.Deployment `json:"items"`
 	}
-	if err := c.do(ctx, http.MethodGet, "/api/v1/deployments", nil, true, &resp); err != nil {
+	if err := c.do(ctx, http.MethodGet, "/deployments", nil, true, &resp); err != nil {
 		return nil, err
 	}
 	return resp.Items, nil
@@ -98,7 +98,7 @@ func (c *Client) Audit(ctx context.Context) ([]audit.Event, error) {
 	var resp struct {
 		Items []audit.Event `json:"items"`
 	}
-	if err := c.do(ctx, http.MethodGet, "/api/v1/audit", nil, true, &resp); err != nil {
+	if err := c.do(ctx, http.MethodGet, "/audit", nil, true, &resp); err != nil {
 		return nil, err
 	}
 	return resp.Items, nil
@@ -108,7 +108,7 @@ func (c *Client) Access(ctx context.Context) ([]store.AccessSummary, error) {
 	var resp struct {
 		Items []store.AccessSummary `json:"items"`
 	}
-	if err := c.do(ctx, http.MethodGet, "/api/v1/access", nil, true, &resp); err != nil {
+	if err := c.do(ctx, http.MethodGet, "/access", nil, true, &resp); err != nil {
 		return nil, err
 	}
 	return resp.Items, nil

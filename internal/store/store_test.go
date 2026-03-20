@@ -9,3 +9,13 @@ func TestSafeDSN(t *testing.T) {
 		t.Fatalf("SafeDSN() = %q, want %q", got, want)
 	}
 }
+
+func TestPasswordHashRoundTrip(t *testing.T) {
+	salt, hash := hashPassword("secret123")
+	if !verifyPassword("secret123", salt, hash) {
+		t.Fatal("expected password verification to succeed")
+	}
+	if verifyPassword("wrong", salt, hash) {
+		t.Fatal("expected wrong password verification to fail")
+	}
+}
