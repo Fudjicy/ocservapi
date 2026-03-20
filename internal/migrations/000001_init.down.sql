@@ -1,0 +1,13 @@
+DROP TABLE IF EXISTS sessions;
+DROP TABLE IF EXISTS audit_events;
+DROP TABLE IF EXISTS deployment_steps;
+DROP TABLE IF EXISTS deployments;
+DROP TABLE IF EXISTS certificates;
+DROP TABLE IF EXISTS endpoint_ca_bindings;
+DROP TABLE IF EXISTS ca_profiles;
+DROP TABLE IF EXISTS secrets;
+DROP TABLE IF EXISTS endpoint_admin_access;
+DROP TABLE IF EXISTS endpoints;
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS system_settings;
+DROP TABLE IF EXISTS system_instance;
